@@ -22,12 +22,14 @@ jobs:
         distribution: 'temurin'
         cache: 'gradle'
 
-    # BARU: Menggunakan Action khusus untuk menyiapkan lingkungan Android SDK/Gradle
+    # KOREKSI: Mengganti Action yang tidak ditemukan dengan Action yang populer dan valid
     - name: Setup Android SDK and Environment
-      uses: r0adkll/setup-android@v2
+      uses: android-actions/setup-android@v3
+      # Kita tidak perlu menginstal komponen spesifik, Action ini cukup pintar 
+      # untuk menyiapkan apa yang dibutuhkan Gradle.
 
-    - name: Build Debug APK (Menggunakan gradlew yang sudah ada atau di-setup)
-      # Menghapus perintah 'chmod +x gradlew' karena Action setup-android sudah menanganinya
+    - name: Build Debug APK
+      # Menggunakan gradlew (Gradle Wrapper) untuk menjalankan build
       run: ./gradlew assembleDebug 
 
     - name: Upload APK artifact
