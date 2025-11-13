@@ -1,0 +1,115 @@
+name: Android Minimal Shell Build (No Gradle)
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    # Variabel Lingkungan yang Penting
+    env:
+      ANDROID_API: 34
+      ANDROID_SDK_ROOT: /usr/local/lib/android/sdk
+      BUILD_TOOLS_VERSION: 34.0.0
+      
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up Java
+      uses: actions/setup-java@v4
+      with:
+        java-version: '17'
+        distribution: 'temurin'
+
+    # LANGKAH 1: Setup Android Build Tools (Wajib untuk aapt, d8, apksigner)
+    - name: Setup Android Build Tools
+      uses: android-actions/setup-android@v3
+      with:
+        packages: |
+          build-tools;${{ env.BUILD_TOOLS_VERSION }}
+          platforms;android-${{ env.ANDROID_API }}
+          cmdline-tools;latest
+
+    # LANGKAH 2: Set up Path Variables untuk Tools
+    - name: Set up Path Variables
+      id: path_vars
+      run: |
+        BUILD_TOOLS="${{ env.ANDROID_SDK_ROOT }}/build-tools/${{ env.BUILD_TOOLS_VERSION }}"
+        PLATFORM_JAR="${{ env.ANDROID_SDK_ROOT }}/platforms/android-${{ env.ANDROID_API }}/android.jar"
+        echo "BUILD_TOOLS=$BUILD_TOOLS" >> $GITHUB_ENV
+        echo "PLATFORM_JAR=$PLATFORM_JAR" >> $GITHUB_ENV
+
+    # LANGKAH 3: Compile Java ke Class Files (javac)
+    - name: Compile Java Code to Class Files
+      run: |
+        mkdir -p build/classes
+        javac -cp "${{ env.PLATFORM_JAR }}" \
+              -source 17 -target 17 \
+              -d build/classes \
+              app/src/main/java/com/minimal/app/MainActivity.java
+        echo "Java compilation complete."
+
+    # LANGKAH 4: Compile Resources dan Manifest (aapt package)
+    - name: Package Resources and Assets (aapt)
+      run: |
+        mkdir -p build/intermediates/res build/intermediates/apk
+        
+        # aapt: Compile resources dan manifest, buat APK Mentah (hanya berisi manifest dan resources)
+        "${{ env.BUILD_TOOLS }}/aapt" package -f \
+            -M app/src/main/AndroidManifest.xml \
+            -I "${{ env.PLATFORM_JAR }}" \
+            -F build/intermediates/res/resources.apk \
+            -A app/src/main/assets \
+            -m 
+        echo "aapt packaging complete."
+
+    # LANGKAH 5: Convert Java Class files ke DEX (Dalvik Executable) (d8)
+    - name: Convert Class to DEX (d8)
+      run: |
+        "${{ env.BUILD_TOOLS }}/d8" \
+            --output build/intermediates/dex/classes.dex \
+            build/classes
+        echo "DEX conversion complete."
+
+    # LANGKAH 6: Gabungkan DEX dan Resources menjadi APK Mentah
+    - name: Assemble Unsigned APK
+      run: |
+        # aapt add: Menambahkan file DEX ke dalam APK resources yang sudah ada
+        "${{ env.BUILD_TOOLS }}/aapt" add \
+            build/intermediates/res/resources.apk \
+            build/intermediates/dex/classes.dex
+            
+        mv build/intermediates/res/resources.apk build/intermediates/apk/app-unsigned.apk
+        echo "Unsigned APK created."
+
+    # LANGKAH 7: Sign APK dengan Debug Key (apksigner)
+    - name: Sign APK (Debug Key)
+      run: |
+        # Membuat key debug sementara untuk penandatanganan
+        # Catatan: Perintah ini adalah simulasi key debug yang aman
+        echo "android-actions-alias: Android CI Key" > debug.keystore
+        
+        # Penandatanganan: mengubah app-unsigned.apk menjadi app-debug.apk
+        "${{ env.BUILD_TOOLS }}/apksigner" sign \
+            --ks debug.keystore \
+            --ks-key-alias android-actions-alias \
+            --ks-pass pass:android \
+            --key-pass pass:android \
+            --out build/intermediates/apk/app-debug.apk \
+            build/intermediates/apk/app-unsigned.apk
+            
+        echo "APK signing complete."
+        mkdir -p app/build/outputs/apk/debug
+        cp build/intermediates/apk/app-debug.apk app/build/outputs/apk/debug/
+        
+    - name: Upload APK artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: minimal-app-debug-apk
+        path: app/build/outputs/apk/debug/app-debug.apk
+        retention-days: 7
