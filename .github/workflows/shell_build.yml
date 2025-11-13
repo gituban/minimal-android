@@ -26,34 +26,47 @@ jobs:
         java-version: '17'
         distribution: 'temurin'
 
-    # LANGKAH 1: Setup Android Build Tools (Wajib untuk aapt, d8, apksigner)
-    - name: Setup Android Build Tools
+    # LANGKAH 1a: Setup Android Command Line Tools (Wajib)
+    # Dipisahkan untuk menghindari bug parsing multi-line YAML
+    - name: Setup Android Build Tools & Platform
       uses: android-actions/setup-android@v3
       with:
+        # Menginstal satu per satu paket SDK (API 34 dan Build Tools)
         packages: |
-          build-tools;${{ env.BUILD_TOOLS_VERSION }}
           platforms;android-${{ env.ANDROID_API }}
-          cmdline-tools;latest
+          build-tools;${{ env.BUILD_TOOLS_VERSION }}
+          
+        # Set ke true agar lisensi diterima secara otomatis
+        accept-android-sdk-licenses: true
 
+    # LANGKAH 1b: Setup Command Line Tools (Action yang sama diulang untuk Cmdline Tools)
+    - name: Setup Commandline Tools
+      uses: android-actions/setup-android@v3
+      with:
+        packages: cmdline-tools;latest
+        accept-android-sdk-licenses: true
+        
     # LANGKAH 2: Set up Path Variables untuk Tools
     - name: Set up Path Variables
       id: path_vars
       run: |
+        # Mengambil path dari Build Tools
         BUILD_TOOLS="${{ env.ANDROID_SDK_ROOT }}/build-tools/${{ env.BUILD_TOOLS_VERSION }}"
         PLATFORM_JAR="${{ env.ANDROID_SDK_ROOT }}/platforms/android-${{ env.ANDROID_API }}/android.jar"
         echo "BUILD_TOOLS=$BUILD_TOOLS" >> $GITHUB_ENV
         echo "PLATFORM_JAR=$PLATFORM_JAR" >> $GITHUB_ENV
+        echo "Path variables set: BUILD_TOOLS: $BUILD_TOOLS" 
 
     # LANGKAH 3: Compile Java ke Class Files (javac)
-    - name: Compile Java Code to Class Files
+    - name: Compile Java Code to Class Files (javac)
       run: |
         mkdir -p build/classes
+        # Perhatikan: pastikan file Java Anda ada di app/src/main/java/com/minimal/app/MainActivity.java
         javac -cp "${{ env.PLATFORM_JAR }}" \
               -source 17 -target 17 \
               -d build/classes \
               app/src/main/java/com/minimal/app/MainActivity.java
-        echo "Java compilation complete."
-
+        echo "Java compilation complete." 
     # LANGKAH 4: Compile Resources dan Manifest (aapt package)
     - name: Package Resources and Assets (aapt)
       run: |
@@ -64,7 +77,6 @@ jobs:
             -M app/src/main/AndroidManifest.xml \
             -I "${{ env.PLATFORM_JAR }}" \
             -F build/intermediates/res/resources.apk \
-            -A app/src/main/assets \
             -m 
         echo "aapt packaging complete."
 
@@ -91,7 +103,6 @@ jobs:
     - name: Sign APK (Debug Key)
       run: |
         # Membuat key debug sementara untuk penandatanganan
-        # Catatan: Perintah ini adalah simulasi key debug yang aman
         echo "android-actions-alias: Android CI Key" > debug.keystore
         
         # Penandatanganan: mengubah app-unsigned.apk menjadi app-debug.apk
