@@ -14,7 +14,6 @@ jobs:
     - name: Checkout code
       uses: actions/checkout@v4
 
-    # Langkah untuk mengatur JDK tetap sama
     - name: Set up JDK 17
       uses: actions/setup-java@v4
       with:
@@ -22,14 +21,25 @@ jobs:
         distribution: 'temurin'
         cache: 'gradle'
 
-    # KOREKSI: Mengganti Action yang tidak ditemukan dengan Action yang populer dan valid
     - name: Setup Android SDK and Environment
       uses: android-actions/setup-android@v3
-      # Kita tidak perlu menginstal komponen spesifik, Action ini cukup pintar 
-      # untuk menyiapkan apa yang dibutuhkan Gradle.
+
+    # KOREKSI BARU: Tambahkan gradlew dan berikan izin eksekusi
+    # Jika gradlew tidak ada, kita asumsikan kita perlu versi default untuk Gradle wrapper.
+    - name: Download and Prepare Gradle Wrapper
+      run: |
+        # Mengunduh Gradle Wrapper files yang diperlukan jika tidak ada
+        curl -o gradlew -L "https://github.com/gradle/gradle/raw/master/gradlew"
+        mkdir -p .gradle/wrapper
+        curl -o .gradle/wrapper/gradle-wrapper.jar -L "https://repo.gradle.org/artifactory/libs-releases/org/gradle/wrapper/gradle-wrapper/8.8/gradle-wrapper-8.8.jar"
+        
+        # Memberikan izin eksekusi
+        chmod +x gradlew
+      # Jika build.gradle Anda menggunakan versi Gradle lebih rendah dari 8.8,
+      # Anda mungkin perlu mengganti angka '8.8' di URL di atas.
 
     - name: Build Debug APK
-      # Menggunakan gradlew (Gradle Wrapper) untuk menjalankan build
+      # Sekarang ./gradlew seharusnya sudah ada dan dapat dieksekusi
       run: ./gradlew assembleDebug 
 
     - name: Upload APK artifact
