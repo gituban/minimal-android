@@ -21,21 +21,12 @@ jobs:
         distribution: 'temurin'
         cache: 'gradle'
 
-    # Catatan: Kita perlu gradlew dan wrapper files.
-    # Untuk kesederhanaan minimal, kita akan menjalankan gradle langsung 
-    # di runner yang sudah memiliki gradle terinstal, namun ini kurang ideal.
-    # Solusi terbaik: Tambahkan gradlew dan gradle-wrapper.properties ke repo.
-    # Namun, karena batasan nano, kita abaikan dan mengandalkan runner environment.
-
     - name: Build Debug APK
-      # Di sini kita perlu gradlew, tapi karena kita tidak membuatnya, kita 
-      # asumsikan GitHub runner sudah punya path ke gradle. Ini mungkin gagal.
-      # Solusi yang aman: gunakan action yang menyediakan gradlew secara otomatis.
-      # Atau, untuk minimalisme, kita anggap gradlew sudah ada:
-      run: chmod +x gradlew || true # Jika tidak ada, lanjutkan saja
-      run: gradle assembleDebug 
-      # Jika build gagal karena gradlew, coba ganti: ./gradlew assembleDebug 
-      # Jika Anda telah menambahkan file gradlew & properties ke repo.
+      # Menggunakan blok multiline (|) untuk menjalankan beberapa perintah.
+      # Kita mengandalkan 'gradle' yang sudah terinstal di environment GitHub runner.
+      run: |
+        chmod +x gradlew || true
+        gradle assembleDebug 
 
     - name: Upload APK artifact
       uses: actions/upload-artifact@v4
@@ -43,4 +34,3 @@ jobs:
         name: minimal-app-debug-apk
         path: app/build/outputs/apk/debug/app-debug.apk
         retention-days: 7
-
